@@ -1,0 +1,3 @@
+axis,event_type,start_time,end_time,duration_seconds,max_deviation
+Axis #2,alert,2022-10-18 10:45:19.628,2022-10-18 10:45:24.628,5.0,22.433684773904677
+Axis #2,error,2022-10-18 10:45:33.628,2022-10-18 10:45:38.628,5.0,34.96352307143825
