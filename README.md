@@ -67,17 +67,67 @@ Detect Alert/Error events.
 
 Log events back to Neon and export CSVs.
 
-## Methodology
+## Regression & Alert Rules
 
-1. **Regression Baseline:** Fits `Axis_value = slope × time_seconds + intercept` for each axis. Very low $R^2$ values verify that currents remain stationary around a mean, allowing the regression line to serve as a baseline.
-2. **Residual Analysis & Thresholds:** Thresholds are calculated non-parametrically from residual distributions (`actual - prediction`):
-   * **MinC (Alert):** 95th percentile ($Q_{95}$)
-   * **MaxC (Error):** 99th percentile ($Q_{99}$)
-   * **T:** 5 seconds continuous duration
-3. **Axis Selection:** **Axis #2** is selected for demonstration because of well-behaved residuals ($\text{Std} = 6.88$) and clean $2\times$ threshold separation ($\text{MinC} = 13.55$, $\text{MaxC} = 27.83$).
-4. **Stateful Detection:** Tracks continuous deviation duration ($t \ge T$). Once an incident fires, it does not re-fire until values drop below `MinC`, ensuring a 1:1 incident-to-event ratio.
+**Regression.** For each axis, fit `Axis = slope × time_seconds + intercept` using scikit-learn's `LinearRegression`. 
+The line is our **baseline** — the expected value at any moment. 
+Slopes are near zero, so the baseline ≈ mean current.
+
+**Residuals.** `residual = actual − predicted`. Positive residuals = axis drawing more current than expected. 
+We only care about positive residuals (over-consumption).
+
+**Thresholds (discovered from training residuals, not fixed):**
+
+| Symbol | Definition | Purpose |
+|---|---|---|
+| MinC | Q95 of residuals | Alert threshold |
+| MaxC | Q99 of residuals | Error threshold |
+| T | 5 seconds | Minimum continuous duration |
+
+**Why percentiles:** they adapt per-axis and don't assume normal residuals. 
+Z-scores fail on Axis #8 (`Q95 < Std`) and Axis #7 (`Q95 ≈ Q99`).
+
+**Rules (evaluated one observation at a time):**
+Alert : residual ≥ MinC for ≥ T seconds continuously
+Error : residual ≥ MaxC for ≥ T seconds continuously
 
 ---
+
+## Plots
+
+**1. Regression fit — Axis #2**
+
+![Regression fit](results/regression_plots/regression_axis2.png)
+
+*Raw currents vs time, with the fitted regression line. Near-horizontal line confirms the axis is stationary.*
+
+**2. Residual distribution — Axis #2**
+
+![Residual distribution](results/residual_plots/residuals_axis2.png)
+
+*Histogram of training residuals with MinC (orange) and MaxC (red). Q95 = 13.55, Q99 = 27.83.*
+
+**3. Annotated stream — Alert / Error events**
+
+![Annotated stream](results/alert_plots/annotated_stream.png)
+
+*Synthetic stream with detected events. Each shaded band is a sustained deviation; each callout shows event type, duration, and max deviation.*
+
+| Axis | Event | Start (UTC) | Duration | Max dev |
+|---|---|---|---|---|
+| Axis #2 | ALERT | 10:45:19 | 5.0 s | 22.43 |
+| Axis #2 | ERROR | 10:45:33 | 5.0 s | 34.96 |
+
+**No false positives** in normal, gap, or recovery phases.
+
+**4. Residual view — same events**
+
+![Annotated residuals](results/residual_plots/annotated_residuals.png)
+
+*Same stream plotted as residuals, showing the detector's decision boundary directly.*
+
+---
+
 ## Results
 
 ### Discovered Thresholds (Axis #2)
@@ -107,7 +157,7 @@ Log events back to Neon and export CSVs.
 
 ---
 
-## Author & License
+## Author & Course
 
 * **Course:** Foundation ML — Data Stream Visualization Workshop
 * **Author:** Alamir Ibrahim.
